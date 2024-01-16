@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <meta http-equiv="cache-control" content="no-cache">
+    <title>Parallel</title>
+    <link rel="stylesheet" href="./frontend/assets/bootstrap-5.3.1-dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200,0,0" />
+    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous"> -->
+</head>
+<body>
+    
+    <div class="col-md-12 p-1 row mx-auto">
+        <div class="col-md-12 row">
+            <p><em>PARALLEL BATCH PROCESSING</em></p>
+            <p class="display-6 lead" id="subPname">CWP Mixing: Weighing of Raw Materials</p>
+            <div class="col-md-3">
+                <p ><strong>Batch Number: </strong><em id="batch_number">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>Form Assignment: </strong><em id="form_assignment">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>Total Operator: </strong><em id="total_operator">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>Sampling Quantity: </strong><em id="sampling_quantity">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>Uncontrolled Quantity: </strong><em id="uncontrolled_quantity">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>Batch Type: </strong><em id="batch_type">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>Result Type: </strong><em id="result_type">49</em></p>
+            </div>
+            <div class="col-md-3">
+                <p ><strong>With Quantity: </strong><em id="with_quantity">49</em></p>
+            </div>
+        </div>
+        <div class="col-md-12 p-2 py-5 row mx-auto">
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100 form-control p-3" id="add_batch_btn" onclick="addBatch()">
+                    <span class="material-symbols-outlined align-bottom">layers</span>
+                    Add Batch
+                </button>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100 form-control p-3" id="done_btn" onclick="done()">
+                    <span class="material-symbols-outlined align-bottom">done_outline</span>
+                    Done
+                </button>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100 form-control p-3" id="add_operator_btn" onclick="addOperator()">
+                    <span class="material-symbols-outlined align-bottom">group_add</span>
+                    Add Operator
+                </button>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100 form-control p-3" id="done_process_btn" onclick="doneProcess()">
+                    <span class="material-symbols-outlined align-bottom">done_all</span>
+                    Done Process
+                </button>
+            </div>
+        </div>
+        <hr>
+        <div class="table-responsive">
+            <table class="table border rounded shadow">
+                <thead>
+                    <tr>
+                        <th>Line No</th>
+                        <th>Parts No.</th>
+                        <th>Revision No.</th>
+                        <th>Lot No.</th>
+                        <th>Wafer From</th>
+                        <th>Wafer To</th>
+                        <th>Total Quantity</th>
+                        <th>Allocated Quantity</th>
+                        <th>Unallocated Quantity</th>
+                        <th>Total Sampling In</th>
+                        <th>Total Sampling Out</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="main_table">
+                    
+                </tbody>
+            </table>
+        </div>
+        <div class="container" id="main_div">
+            
+        </div>
+    </div>
+    <!-- Edit Operator Modal -->
+    <div class="modal fade" id="edit_operator_modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+        <div class="modal-dialog  modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h1 class="modal-title fs-5" id="edit_operator_modalLabel">Edit Operator Data</h1>
+                </div>
+                <div class="modal-body">
+                    <div class="container row">
+                        <div class="col-md-12">
+                            <input type="text" class="form-control d-none" id="edit_operator_current_id_number">
+                            <input type="text" class="form-control d-none" id="edit_operator_number">
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="edit_operator_id_number" placeholder="ABC000-1234">
+                                <label for="edit_operator_id_number">ID Number</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="dismiss_btn" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="confirm_identity_btn" onclick="confirm_identity()">Confirm Identity</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./frontend/assets/bootstrap-5.3.1-dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+    <script src="frontend/parallel.js"></script>
+</body>
+</html>
+
