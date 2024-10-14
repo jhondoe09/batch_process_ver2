@@ -17,12 +17,12 @@ function handleGetBatchNumber($postData)
     $parts_number = $postData['parts_number'];
     $revision_number = $postData['revision_number'];
     $lot_number = $postData['lot_number'];
-    $sql = "SELECT * FROM `batch_process_main_tbl` WHERE `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id'";
+    $sql = "SELECT * FROM `batch_process_async_tbl` WHERE `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id'";
     $res = mysqli_query($conn, $sql);
     if (!$res) {
         $response = array(
             'success' => false,
-            'message' => 'Unable to get batch number from [batch_process_main_tbl] error=>' . mysqli_error($conn)
+            'message' => 'Unable to get batch number from [batch_process_async_tbl] error=>' . mysqli_error($conn)
         );
         return $response;
         $conn->close();
@@ -77,6 +77,97 @@ function handleGetBatchNumber($postData)
     }
 }
 
+// function handleGetBatchNumber($postData)
+// {
+//     $conn = $GLOBALS['tpc_dbs'];
+//     $assignment_id = $postData['assignment_id'];
+//     $SubPid = $postData['SubPid'];
+//     $parts_number = $postData['parts_number'];
+//     $revision_number = $postData['revision_number'];
+//     $lot_number = $postData['lot_number'];
+//     $sql = "SELECT * FROM `batch_process_main_tbl` WHERE `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id'";
+//     $res = mysqli_query($conn, $sql);
+//     if (!$res) {
+//         $response = array(
+//             'succes' => false,
+//             'message' => 'Unable to get batch_number from [batch_process_main_tbl] error =>' . mysqli_error($conn)
+//         );
+//         return $response;
+//         $conn->close();
+//     } else {
+//         if (mysqli_num_rows($res) > 0) {
+//             $data = array();
+//             while ($row = mysqli_fetch_assoc($res)) {
+//                 $response = array(
+//                     'success' => true,
+//                     'data' => $data
+//                 );
+//             }
+//             return $response;
+//             $conn->close();
+//         } else {
+//             $sql = "SELECT * FROM `batch_process_async_tbl` WHERE `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id'";
+//             $res = mysqli_query($conn, $sql);
+//             if (!$res) {
+//                 $response = array(
+//                     'success' => false,
+//                     'message' => 'Unable to get batch number from [batch_process_async_tbl] error=>' . mysqli_error($conn)
+//                 );
+//                 return $response;
+//                 $conn->close();
+//             } else {
+//                 if (mysqli_num_rows($res) > 0) {
+//                     $data = array();
+//                     while ($row = mysqli_fetch_assoc($res)) {
+//                         $data[] = $row;
+//                         $response = array(
+//                             'success' => true,
+//                             'data' => $data
+//                         );
+//                     }
+//                     return $response;
+//                     $conn->close();
+//                 } else {
+//                     $query = "INSERT INTO `batch_process_main_tbl`(`SubPid`, `assignment_id`, `parts_number`, `revision_number`, `lot_number`) VALUES ('$SubPid', '$assignment_id', '$parts_number', '$revision_number', '$lot_number')";
+//                     $result = mysqli_query($conn, $query);
+//                     if (!$result) {
+//                         $response = array(
+//                             'success' => false,
+//                             'message' => 'Unable to save data into [batch_process_main_tbl] error =>' . mysqli_error($conn)
+//                         );
+//                         return $response;
+//                         $conn->close();
+//                     } else {
+//                         $execute = "SELECT * FROM `batch_process_main_tbl` WHERE `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id'";
+//                         $exec = mysqli_query($conn, $execute);
+//                         if (!$exec) {
+//                             $response = array(
+//                                 'success' => false,
+//                                 'message' => 'Unable to fetch data from batch_process_main_tbl error=>' . mysqli_error($conn)
+//                             );
+//                             return $response;
+//                             $conn->close();
+//                         } else {
+//                             if (mysqli_num_rows($exec) > 0) {
+//                                 $data = array();
+//                                 while ($rows = mysqli_fetch_assoc($exec)) {
+//                                     $data[] = $rows;
+//                                     $response = array(
+//                                         'success' => true,
+//                                         'data' => $data
+//                                     );
+//                                 }
+//                                 return $response;
+//                                 $conn->close();
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
+
 function handleGetMain($postData)
 {
     $conn = $GLOBALS['tpc_prod_dbs'];
@@ -112,7 +203,8 @@ function handleGetData($postData)
     $conn = $GLOBALS['tpc_dbs'];
     $SubPid = $postData['sub_pid'];
     $assignment_id = $postData['assign_id'];
-    $sql = "SELECT * FROM `batch_process_async_tbl` WHERE `assignment_id` = '$assignment_id' AND `SubPid` = '$SubPid' ORDER BY `line_number` ASC";
+    $batch_number = $postData['batch_number'];
+    $sql = "SELECT * FROM `batch_process_async_tbl` WHERE `batch_number` = '$batch_number' AND `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id' ORDER BY `line_number` ASC LIMIT 1";
     $res = mysqli_query($conn, $sql);
     if (!$res) {
         $response = array(
@@ -123,16 +215,61 @@ function handleGetData($postData)
         $conn->close();
     } else {
         if (mysqli_num_rows($res) > 0) {
-            $data = array();
             while ($row = mysqli_fetch_assoc($res)) {
-                $data[] = $row;
-                $response = array(
-                    'success' => true,
-                    'data' => $data
-                );
+                $batch_number = $row['batch_number'];
+                $SubPid = $row['SubPid'];
+                $assignment_id = $row['assignment_id'];
+                $line_number = $row['line_number'];
+                if ($line_number > 1) {
+                    $query = "SELECT * FROM `batch_process_async_tbl` WHERE `batch_number` = '$batch_number' AND `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id' ORDER BY `line_number` ASC";
+                    $exec = mysqli_query($conn, $query);
+                    if (!$exec) {
+                        $response = array(
+                            'success' => false,
+                            'message' => 'Unable to get data from batch_process_async_tbl error=>' . mysqli_error($conn)
+                        );
+                        return $response;
+                        $conn->close();
+                    } else {
+                        if (mysqli_num_rows($exec) > 0) {
+                            $data = array();
+                            while ($rows = mysqli_fetch_assoc($exec)) {
+                                $data[] = $rows;
+                                $response = array(
+                                    'success' => true,
+                                    'data' => $data
+                                );
+                            }
+                            return $response;
+                            $conn->close();
+                        }
+                    }
+                } else {
+                    $query2 = "SELECT * FROM `batch_process_async_tbl` WHERE `batch_number` = '$batch_number' AND `SubPid` = '$SubPid' ORDER BY `line_number` ASC";
+                    $exec2 = mysqli_query($conn, $query2);
+                    if (!$exec2) {
+                        $response = array(
+                            'success' => false,
+                            'message' => 'Unable to get data from batch_process_async_tbl error=>' . mysqli_error($conn)
+                        );
+                        return $response;
+                        $conn->close();
+                    } else {
+                        if (mysqli_num_rows($exec2) > 0) {
+                            $data2 = array();
+                            while ($rows = mysqli_fetch_assoc($exec2)) {
+                                $data2[] = $rows;
+                                $response = array(
+                                    'success' => true,
+                                    'data' => $data2
+                                );
+                            }
+                            return $response;
+                            $conn->close();
+                        }
+                    }
+                }
             }
-            return $response;
-            $conn->close();
         } else {
             $sql = "SELECT * FROM `form_assignment_tbl` WHERE `assignment_id` = '$assignment_id'";
             $res = mysqli_query($conn, $sql);
@@ -250,9 +387,9 @@ function handleGetBatchData($postData)
     $conn = $GLOBALS['tpc_dbs'];
     $batch_number = $postData['batch_number'];
     $SubPid = $postData['SubPid'];
-    $assignment_id = $postData['assignment_id'];
+    // $assignment_id = $postData['assignment_id'];
     $operator_number = $postData['operator_number'];
-    $sql = "SELECT * FROM `batch_process_async_tbl` WHERE `batch_number` = '$batch_number' AND `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id' ORDER BY `lot_number`, `line_number`";
+    $sql = "SELECT * FROM `batch_process_async_tbl` WHERE `batch_number` = '$batch_number' AND `SubPid` = '$SubPid' ORDER BY `lot_number`, `line_number`";
     $result = mysqli_query($conn, $sql);
     if (!$result) {
         $response = array(
@@ -272,6 +409,7 @@ function handleGetBatchData($postData)
                 $total_qty = $row['total_quantity'];
                 $wafer_no_from = $row['wafer_number_from'];
                 $wafer_no_to = $row['wafer_number_to'];
+                $assignment_id = $row['assignment_id'];
                 $query = "INSERT INTO `batch_process_operator_tbl`(`SubPid`, `batch_number`, `operator_number`, `line_number`, `assignment_id`, `parts_number`, `revision_number`, `lot_number`, `wafer_number_from`, `wafer_number_to`, `quantity_in`) VALUES ('$SubPid', '$batch_number', '$operator_number', '$line_number', '$assignment_id', '$parts_number', '$revision_number', '$lot_number', '$wafer_no_from', '$wafer_no_to', '$total_qty')";
                 $res = mysqli_query($conn, $query);
                 if (!$res) {
@@ -307,13 +445,13 @@ function handleGetBatchData($postData)
 function handleGetTableData($postData)
 {
     $conn = $GLOBALS['tpc_dbs'];
-    $assignment_id = $postData['assignment_id'];
+    // $assignment_id = $postData['assignment_id'];
     $batch_number = $postData['batch_number'];
     $sub_pid = $postData['SubPid'];
     $query = "SELECT DISTINCT * FROM `batch_process_operator_tbl` WHERE `batch_operator_id` IN 
     (SELECT `batch_operator_id` 
       FROM `batch_process_operator_tbl`
-      WHERE `SubPid` = '$sub_pid' AND `assignment_id` = '$assignment_id' AND `batch_number` = '$batch_number'
+      WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number'
       GROUP BY `operator_number`
       HAVING COUNT(*) > 0) ORDER BY `operator_number` ASC";
     $res = mysqli_query($conn, $query);
@@ -355,7 +493,7 @@ function handleGetSecondTableData($postData)
     $batch_number = $postData['batch_number'];
     $assignment_id = $postData['assignment_id'];
     $operator_number = $postData['operator_number'];
-    $sql = "SELECT * FROM `batch_process_operator_tbl` WHERE `SubPid` = '$SubPid' AND `batch_number` = '$batch_number' AND `assignment_id` = '$assignment_id' AND `operator_number` = '$operator_number' ORDER BY `line_number` ASC";
+    $sql = "SELECT * FROM `batch_process_operator_tbl` WHERE `SubPid` = '$SubPid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' AND `assignment_id` = '$assignment_id' ORDER BY `line_number` ASC";
     $res = mysqli_query($conn, $sql);
     if (!$res) {
         $response = array(
@@ -366,16 +504,61 @@ function handleGetSecondTableData($postData)
         $conn->close();
     } else {
         if (mysqli_num_rows($res) > 0) {
-            $data = array();
             while ($row = mysqli_fetch_assoc($res)) {
-                $data[] = $row;
-                $response = array(
-                    'success' => true,
-                    'data' => $data
-                );
+                $assignment_id = $row['assignment_id'];
+                $line_number = $row['line_number'];
+                $batch_number = $row['batch_number'];
+                $SubPid = $row['SubPid'];
+                if ($line_number > 1) {
+                    $query = "SELECT * FROM `batch_process_operator_tbl` WHERE `SubPid` = '$SubPid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' AND `assignment_id` = '$assignment_id' ORDER BY `line_number` ASC";
+                    $result = mysqli_query($conn, $query);
+                    if (!$result) {
+                        $response = array(
+                            'success' => false,
+                            'message' => 'Unable to get batch_process_operator_tbl data error =>' . mysqli_error($conn)
+                        );
+                        return $response;
+                        $conn->close();
+                    } else {
+                        if (mysqli_num_rows($result) > 0) {
+                            $data = array();
+                            while ($rows = mysqli_fetch_assoc($result)) {
+                                $data[] = $rows;
+                                $response = array(
+                                    'success' => true,
+                                    'data' => $data
+                                );
+                            }
+                            return $response;
+                            $conn->close();
+                        }
+                    }
+                } else {
+                    $query = "SELECT * FROM `batch_process_operator_tbl` WHERE `SubPid` = '$SubPid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' ORDER BY `line_number` ASC";
+                    $result = mysqli_query($conn, $query);
+                    if (!$result) {
+                        $response = array(
+                            'success' => false,
+                            'message' => 'Unable to get batch_process_operator_tbl data error =>' . mysqli_error($conn)
+                        );
+                        return $response;
+                        $conn->close();
+                    } else {
+                        if (mysqli_num_rows($result) > 0) {
+                            $data = array();
+                            while ($rows = mysqli_fetch_assoc($result)) {
+                                $data[] = $rows;
+                                $response = array(
+                                    'success' => true,
+                                    'data' => $data
+                                );
+                            }
+                            return $response;
+                            $conn->close();
+                        }
+                    }
+                }
             }
-            return $response;
-            $conn->close();
         }
     }
 }
@@ -544,18 +727,112 @@ function handleSaveProcess($postData)
 }
 
 
+// function handleGetThirdTableData($postData)
+// {
+//     $conn = $GLOBALS['tpc_dbs'];
+//     $sub_pid = $postData['SubPid'];
+//     $batch_number = $postData['batch_number'];
+//     // $operator_number = $postData['operator_number'];
+//     // $line_number = $postData['line_number'];
+//     $parts_number = $postData['parts_number'];
+//     $revision_number = $postData['revision_number'];
+//     $lot_number = $postData['lot_number'];
+//     // $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' ORDER BY `line_number`, `wafer_number`";
+//     $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' ORDER BY `line_number`, `wafer_number`";
+//     $res = mysqli_query($conn, $sql);
+//     if (!$res) {
+//         $response = array(
+//             'success' => false,
+//             'message' => mysqli_error($conn)
+//         );
+//         return $response;
+//         $conn->close();
+//     } else {
+//         if (mysqli_num_rows($res) > 0) {
+//             $data = array();
+//             while ($row = mysqli_fetch_assoc($res)) {
+//                 $SubPid = $row['SubPid'];
+//                 $batch_number = $row['batch_number'];
+//                 $parts_number = $row['parts_number'];
+//                 $revision_number = $row['revision_number'];
+//                 $lot_number = $row['lot_number'];
+//                 $line_number = $row['line_number'];
+//                 $operator_number = $row['operator_number'];
+//                 if ($line_number > 1) {
+//                     $query = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$SubPid' AND `batch_number` = '$batch_number' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' ORDER BY `line_number`, `wafer_number`";
+//                     $result = mysqli_query($conn, $query);
+//                     if (!$result) {
+//                         $response = array(
+//                             'success' => false,
+//                             'message' => 'Unable to get batch_process_wafer_tbl data error =>'
+//                         );
+//                         return $response;
+//                         $conn->close();
+//                     } else {
+//                         if (mysqli_num_rows($result) > 0) {
+//                             $data = array();
+//                             while ($rows = mysqli_fetch_assoc($result)) {
+//                                 $data[] = $rows;
+//                                 $response = array(
+//                                     'success' => true,
+//                                     'data' => $data,
+//                                     'single data' => $line_number
+//                                 );
+//                             }
+//                             return $response;
+//                             $conn->close();
+//                         }
+//                     }
+//                 } else {
+//                     $query = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$SubPid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' ORDER BY `line_number`, `wafer_number`";
+//                     $result = mysqli_query($conn, $query);
+//                     if (!$result) {
+//                         $response = array(
+//                             'success' => false,
+//                             'message' => 'Unable to get batch_process_wafer_tbl data error =>'
+//                         );
+//                         return $response;
+//                         $conn->close();
+//                     } else {
+//                         if (mysqli_num_rows($result) > 0) {
+//                             $data = array();
+//                             while ($rows = mysqli_fetch_assoc($result)) {
+//                                 $data[] = $rows;
+//                                 $response = array(
+//                                     'success' => true,
+//                                     'data' => $data,
+//                                     'multiple data' => $line_number
+//                                 );
+//                             }
+//                             return $response;
+//                             $conn->close();
+//                         }
+//                     }
+//                 }
+//             }
+//         } else {
+//             $response = array(
+//                 'success' => false,
+//                 'message' => 'No data found!'
+//             );
+//             return $response;
+//             $conn->close();
+//         }
+//     }
+// }
+
 function handleGetThirdTableData($postData)
 {
     $conn = $GLOBALS['tpc_dbs'];
     $sub_pid = $postData['SubPid'];
     $batch_number = $postData['batch_number'];
     $operator_number = $postData['operator_number'];
-    // $line_number = $postData['line_number'];
-    // $parts_number = $postData['parts_number'];
-    // $revision_number = $postData['revision_number'];
-    // $lot_number = $postData['lot_number'];
-    $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' ORDER BY `line_number`, `wafer_number`";
-    // $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `line_number` = '$line_number' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' ORDER BY `line_number`, `wafer_number`";
+    $line_number = $postData['line_number'];
+    $parts_number = $postData['parts_number'];
+    $revision_number = $postData['revision_number'];
+    $lot_number = $postData['lot_number'];
+    // $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' ORDER BY `line_number`, `wafer_number`";
+    $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `line_number` = '$line_number' AND `operator_number` = '$operator_number' ORDER BY `line_number`, `wafer_number` ASC";
     $res = mysqli_query($conn, $sql);
     if (!$res) {
         $response = array(
@@ -622,7 +899,7 @@ function handleSaveSecondTableData($postData)
     if (isset($postData)) {
         foreach ($postData as $key => $value) {
             $index = substr($key, strlen('line_number_'));
-            // $line_number = isset($_POST["line_number_" .$index]) ? mysqli_real_escape_string($conn, $_POST["line_number_" .$index]) : NULL;
+            $line_number = isset($_POST["line_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["line_number_" . $index]) : NULL;
             $parts_number = isset($_POST["parts_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["parts_number_" . $index]) : NULL;
             $revision_number = isset($_POST["revision_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["revision_number_" . $index]) : NULL;
             $lot_number = isset($_POST["lot_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["lot_number_" . $index]) : NULL;
@@ -631,7 +908,7 @@ function handleSaveSecondTableData($postData)
             $qty_in = isset($_POST["qty_in_" . $index]) ? mysqli_real_escape_string($conn, $_POST["qty_in_" . $index]) : NULL;
             $ng_count = isset($_POST["ng_count_" . $index]) ? mysqli_real_escape_string($conn, $_POST["ng_count_" . $index]) : NULL;
             $qty_out = isset($_POST["qty_out_" . $index]) ? mysqli_real_escape_string($conn, $_POST["qty_out_" . $index]) : NULL;
-            // $sampling_in = isset($_POST["sampling_in_" .$index]) ? mysqli_real_escape_string($conn, $_POST["sampling_in_" .$index]) : NULL;
+            $sampling_in = isset($_POST["sampling_in_" . $index]) ? mysqli_real_escape_string($conn, $_POST["sampling_in_" . $index]) : NULL;
             $sampling_out = isset($_POST["sampling_out_" . $index]) ? mysqli_real_escape_string($conn, $_POST["sampling_out_" . $index]) : NULL;
             $unfinished_qty = isset($_POST["unfinished_qty_" . $index]) ? mysqli_real_escape_string($conn, $_POST["unfinished_qty_" . $index]) : NULL;
             $sub_pid = isset($_POST["sub_pid"]) ? mysqli_real_escape_string($conn, $_POST["sub_pid"]) : NULL;
@@ -643,7 +920,7 @@ function handleSaveSecondTableData($postData)
             $operator_status = isset($_POST["operator_status"]) ? mysqli_real_escape_string($conn, $_POST["operator_status"]) : NULL;
 
             // $sql = "UPDATE `batch_process_operator_tbl` SET `time_end` = '$time_end', `total_time` = '$total_time', `quantity_ng` = '$ng_count', `quantity_out` = '$qty_out', `sampling_out` = '$sampling_out', `quantity_unfinished` = '$unfinished_qty', `allocated_minutes` = '$total_time', `operator_status` = '$operator_status' WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' AND `assignment_id` = '$assignment_id' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number'";
-            $sql = "UPDATE `batch_process_operator_tbl` SET `quantity_in` = '$qty_in', `quantity_ng` = '$ng_count', `quantity_out` = '$qty_out', `sampling_out` = '$sampling_out', `quantity_unfinished` = '$unfinished_qty', `operator_status` = '$operator_status' WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' AND `assignment_id` = '$assignment_id' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number'";
+            $sql = "UPDATE `batch_process_operator_tbl` SET `quantity_in` = '$qty_in', `quantity_ng` = '$ng_count', `quantity_out` = '$qty_out', `sampling_in` = '$sampling_in', `sampling_out` = '$sampling_out', `quantity_unfinished` = '$unfinished_qty', `operator_status` = '$operator_status' WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `operator_number` = '$operator_number' AND `assignment_id` = '$assignment_id' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `line_number` = '$line_number'";
             $res = mysqli_query($conn, $sql);
             if (!$res) {
                 $response = array(
@@ -670,7 +947,7 @@ function handleSaveThirdTableData($postData)
     if (isset($postData)) {
         foreach ($postData as $key => $value) {
             $index = substr($key, strlen('line_number_'));
-            // $line_number = isset($_POST["line_number_" .$index]) ? mysqli_real_escape_string($conn, $_POST["line_number_" .$index]) : NULL;
+            $line_number = isset($_POST["line_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["line_number_" . $index]) : NULL;
             $parts_number = isset($_POST["parts_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["parts_number_" . $index]) : NULL;
             $revision_number = isset($_POST["revision_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["revision_number_" . $index]) : NULL;
             $lot_number = isset($_POST["lot_number_" . $index]) ? mysqli_real_escape_string($conn, $_POST["lot_number_" . $index]) : NULL;
@@ -692,7 +969,7 @@ function handleSaveThirdTableData($postData)
             if ($operator_id_no == 0 || $operator_id_no == '0') {
                 $qty_ng = null;
             }
-            $sql = "UPDATE `batch_process_wafer_tbl` SET `quantity_in` = '$qty_in', `quantity_ng` = '$qty_ng', `quantity_good` = '$good_qty', `ng_reason` = '$ng_reason', `batch_item_remarks`= '$remarks', `id_number` = '$operator_id_no', `operator_number` = '$operator_number' WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `wafer_number` = '$wafer_number' AND `operator_number` = '$operator_number'";
+            $sql = "UPDATE `batch_process_wafer_tbl` SET `quantity_in` = '$qty_in', `quantity_ng` = '$qty_ng', `quantity_good` = '$good_qty', `ng_reason` = '$ng_reason', `batch_item_remarks`= '$remarks', `id_number` = '$operator_id_no', `operator_number` = '$operator_number' WHERE `SubPid` = '$sub_pid' AND `batch_number` = '$batch_number' AND `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `wafer_number` = '$wafer_number' AND `operator_number` = '$operator_number' AND `line_number` = '$line_number'";
             $res = mysqli_query($conn, $sql);
             if (!$res) {
                 $response = array(
@@ -892,7 +1169,8 @@ function handleGetWaferNG($postData)
     $revision_number = $postData['revision_number'];
     $lot_number = $postData['lot_number'];
     $SubPid = $postData['SubPid'];
-    $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `batch_number` < '$batch_number'";
+    $limit = $postData['limit'];
+    $sql = "SELECT * FROM `batch_process_wafer_tbl` WHERE `parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `batch_number` < '$batch_number' ORDER BY `batch_wafer_id` DESC LIMIT $limit";
     $res = mysqli_query($conn, $sql);
     if (!$res) {
         $response = array(
@@ -927,7 +1205,7 @@ function handleGetQty($postData)
     $lot_number = $postData['lot_number'];
     // $sub_pid = $postData['sub_pid'];
     $sequence_number = $postData['sequence_number'];
-    $sql = "SELECT * FROM `tpc_main_tbl` WHERE `assignment_id` = '$assignment_id' AND `item_parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `sequence_number` < '$sequence_number' ORDER BY `main_prd_id` DESC LIMIT 1";
+    $sql = "SELECT * FROM `tpc_main_tbl` WHERE `assignment_id` = '$assignment_id' AND `item_parts_number` = '$parts_number' AND `revision_number` = '$revision_number' AND `lot_number` = '$lot_number' AND `sequence_number` < '$sequence_number' AND `tpc_sub_status` = 'Done' ORDER BY `main_prd_id` DESC LIMIT 1";
     $res = mysqli_query($conn, $sql);
     if (!$res) {
         $response = array(
@@ -1067,6 +1345,92 @@ function handleAddBatch($postData)
     }
 }
 
+function handleEndProcess($postData)
+{
+    $conn = $GLOBALS['tpc_prod_dbs'];
+    $SubPid = $postData['SubPid'];
+    $assignment_id = $postData['assignment_id'];
+    $sql = "UPDATE `tpc_main_tbl` SET `tpc_sub_status` = 'TBD' WHERE `SubPid` = '$SubPid' AND `assignment_id` = '$assignment_id'";
+    $res = mysqli_query($conn, $sql);
+    if (!$res) {
+        $response = array(
+            'success' => false,
+            'message' => 'Unable to execute query [tpc_main_tbl] end process. Error =>' . mysqli_error($conn)
+        );
+        return $response;
+        $conn->close();
+    } else {
+        $response = array(
+            'success' => true,
+            'message' => 'Data successfully updated from [tpc_main_tbl] process ended!'
+        );
+        return $response;
+        $conn->close();
+    }
+}
+
+function handleScanQRRequest($postData)
+{
+    $tpc_dbs_connection =  $GLOBALS['tpc_dbs'];
+    $item_code = $postData['item_code'];
+    $parts_number = $postData['parts_number'];
+    $lot_number = $postData['lot_number'];
+    $date_issued = $postData['date_issued'];
+    $revision_number = $postData['revision_number'];
+    $assignment_id = $postData['assignment_id'];
+    $sql = "SELECT t1.assignment_id,
+      t1.assignment_status,
+      t1.po_number,
+      t1.order_pn,
+      t1.wafer_number_from,
+      t1.wafer_number_to,
+      t1.date_issued as date2,
+      t1.delivery_date,
+      t2.main_prd_id,
+      t2.assignment_id,
+      t2.section_id,
+      t2.SubPid,
+      t2.item_parts_number,
+      t2.item_code,
+      t2.revision_number,
+      t2.lot_number,
+      t2.tpc_sub_status,
+      t2.tpc_sub_sampling, 
+      t2.tpc_sub_uncontrolled, 
+      t2.quantity,
+      t2.sequence_number,
+      t2.tpc_sub_batching_type,
+      t2.tpc_sub_result_type,
+      t2.date_issued,
+      t2.status,
+      t3.Pid,
+      t3.SubPname,
+      t4.section_code,
+      t4.section_description,
+      t5.Pid,
+      t5.Pname,
+      t5.key_code
+      FROM form_assignment_tbl t1 LEFT JOIN tpc_prod_dbs.tpc_main_tbl t2 ON t1.assignment_id = t2.assignment_id LEFT JOIN setup_sub_process_tbl t3 ON t2.SubPid = t3.SubPid LEFT JOIN setup_section_tbl t4 ON t1.section_id = t4.section_id LEFT JOIN `setup_key_process_tbl` t5 ON t3.Pid = t5.Pid WHERE t1.item_code = '$item_code' AND t1.item_parts_number = '$parts_number' AND t1.lot_number = '$lot_number' AND t1.date_issued = '$date_issued' AND t1.revision_number = '$revision_number' AND t1.assignment_id = '$assignment_id' ORDER BY t2.sequence_number ASC";
+    $result = mysqli_query($tpc_dbs_connection, $sql);
+    if (!$result) {
+        die('Failed to execute query: ' . mysqli_error($tpc_dbs_connection));
+    }
+    if (mysqli_num_rows($result) > 0) {
+        $data = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $data[] = $row;
+        }
+        return $data;
+        $tpc_dbs_connection->close();
+    } else {
+
+        $data[] = 0;
+        return $data;
+        $tpc_dbs_connection->close();
+        exit;
+    }
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['getBatchNumber'])) {
@@ -1169,5 +1533,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = handleAddBatch($postData);
         header('Content-Type: application/json');
         echo json_encode($result);
+    } else if (isset($_POST['end_process'])) {
+        $postData = $_POST;
+        $result = handleEndProcess($postData);
+        header('Content-Type: application/json');
+        echo json_encode($result);
+    } else if (isset($_POST['QrSubmitBtn'])) {
+        $postData = $_POST;
+        $responseData = handleScanQRRequest($postData);
+        header('Content-Type: application/json');
+        echo json_encode($responseData);
     }
 }

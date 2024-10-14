@@ -9,7 +9,6 @@ console.log(assign_id, sub_pid);
 const myFetchURL = 'https://172.16.2.13/batch_process_ver2/backend/parallel_query.php';
 getMainData();
 getData();
-get_table_data();
 function getMainData() {
     const get_main_data = new FormData();
     get_main_data.append('sub_pid', sub_pid);
@@ -24,6 +23,15 @@ function getMainData() {
             console.log(main_data);
             if (main_data) {
                 if (main_data.success) {
+                    localStorage.removeItem(`batch_number`);
+                    localStorage.removeItem(`tpc_sub_result_type`);
+                    localStorage.removeItem(`parts_number`);
+                    localStorage.removeItem(`revision_number`);
+                    localStorage.removeItem(`lot_number`);
+                    localStorage.removeItem(`tpc_sub_sampling`);
+                    localStorage.removeItem(`tpc_sub_uncontrolled`);
+                    localStorage.removeItem(`with_quantity`);
+                    localStorage.removeItem(`sequence_number`);
                     for (let data of main_data.data) {
                         localStorage.setItem(`sequence_number`, data.sequence_number);
                         const fetchBatchNumber = new FormData();
@@ -44,6 +52,18 @@ function getMainData() {
                                 if (batch_number_data.success) {
 
                                     for (let batch_number_datas of batch_number_data.data) {
+                                        if (batch_number_datas.batch_status === "Started") {
+                                            disableMainTable();
+                                            disableMainAddBatchBtn();
+                                            disableMainDoneBtn();
+                                            enableMainAddOperatorBtn();
+                                            enableMainDoneProcessBtn();
+                                        }
+                                        else {
+                                            disableMainAddOperatorBtn();
+                                            disableMainDoneProcessBtn();
+                                        }
+                                        console.log(localStorage.getItem('batch_status'));
                                         thisBatchNumber = batch_number_datas.batch_number;
                                         if (thisBatchNumber <= 0) {
                                             thisBatchNumber = 1
@@ -76,7 +96,9 @@ function getMainData() {
                                         localStorage.setItem(`tpc_sub_sampling`, data.tpc_sub_sampling);
                                         localStorage.setItem(`tpc_sub_uncontrolled`, data.tpc_sub_uncontrolled);
                                         localStorage.setItem(`with_quantity`, data.with_quantity);
+                                        localStorage.setItem(`sequence_number`, data.sequence_number);
                                     }
+                                    get_table_data();
                                 }
                             })
                             .catch(error => {
@@ -93,7 +115,10 @@ function getMainData() {
 function getData() {
     const main_table_tbody = document.getElementById(`main_table_tbody`);
     const get_data = new FormData();
+    const batch_number = localStorage.getItem(`batch_number`);
+    // console.log(batch_number);
     get_data.append('sub_pid', sub_pid);
+    get_data.append('batch_number', batch_number);
     get_data.append('assign_id', assign_id);
     get_data.append('get_data', 'true');
     fetch(myFetchURL, {
@@ -122,7 +147,8 @@ function getData() {
                                 <td id="unallocated_qty_${data.line_number ? data.line_number : line_number}">${data.unallocated_qty ? data.unallocated_qty : 0}</td>
                                 <td id="total_sampling_in_${data.line_number ? data.line_number : line_number}">${data.total_sampling_in ? data.total_sampling_in : 0}</td>
                                 <td id="total_sampling_out_${data.line_number ? data.line_number : line_number}">${data.total_sampling_out ? data.total_sampling_out : 0}</td>
-                            </tr>`;
+                                <td class="d-none" id="assignment_id_${data.line_number ? data.line_number : line_number}">${data.assignment_id}</td>
+                        </tr>`;
                         main_table_tbody.innerHTML += tr;
                         console.log(localStorage.getItem(`tpc_sub_uncontrolled`));
                         // if (localStorage.getItem(`tpc_sub_uncontrolled`) === 'True') {
@@ -148,6 +174,7 @@ function getData() {
                                     <td></td>
                                     <td></td>
                                     <td></td>
+                                    <td class="d-none" id="assignment_id_${line_number}"></td>
                                 </tr>`;
                             main_table_tbody.innerHTML += tr2;
                             // console.log(localStorage.getItem(`tpc_sub_uncontrolled`));
@@ -158,18 +185,7 @@ function getData() {
                             getQtyIn(line_number);
                             // }
                         });
-                        if (data.batch_status) {
-                            disableMainTable();
-                            disableMainAddBatchBtn();
-                            disableMainDoneBtn();
-                            enableMainAddOperatorBtn();
-                            enableMainDoneProcessBtn();
-                        }
-                        else {
-                            disableMainAddOperatorBtn();
-                            disableMainDoneProcessBtn();
-                        }
-                        localStorage.setItem('batch_status', data.batch_status);
+
                         // getQtyIn(data.line_number ? data.line_number : line_number);
                     }
                 }
@@ -225,6 +241,7 @@ function save_batch() {
         const unallocated_qty = td_element[8].textContent;
         const total_sampling_in = td_element[9].textContent;
         const total_sampling_out = td_element[10].textContent;
+        const assignment_id = td_element[11].textContent;
         const batch_data = new FormData();
         batch_data.append(`line_number_${i}`, line_number);
         batch_data.append(`parts_number_${i}`, parts_number);
@@ -238,7 +255,7 @@ function save_batch() {
         batch_data.append(`total_sampling_in_${i}`, total_sampling_in);
         batch_data.append(`total_sampling_out_${i}`, total_sampling_out);
         batch_data.append(`batch_number`, localStorage.getItem('batch_number'));
-        batch_data.append(`assignment_id`, assign_id);
+        batch_data.append(`assignment_id`, assignment_id);
         batch_data.append(`sub_pid`, sub_pid);
         batch_data.append('save_batch_data', 'true');
         fetch(myFetchURL, {
@@ -322,15 +339,13 @@ function get_allocated_qty(operator_number, line_number, parts_number, revision_
 
                 for (let data of allocated_data.data) {
                     if (data.allocated_qty == null || data.allocated_qty == 'null') {
-                        if(parseInt(total_qty.value) < parseFloat(qty_in))
-                        {
+                        if (parseInt(total_qty.value) < parseFloat(qty_in)) {
                             swalALert('Message Prompt!', 'The quantity you have entered is invalid. Please check the [Total Quantity] field above to ensure that you are entering a valid quantity.', 'warning');
                             allocated_qty.textContent = 0;
                             unallocated_qty.textContent = 0;
                             disableStartBtn(operator_number);
                         }
-                        else
-                        {
+                        else {
                             allocated_qty.textContent = parseInt(qty_in);
                             unallocated_qty.textContent = parseFloat(data.total_quantity) - parseInt(qty_in);
                             enableSaveBtn(operator_number);
@@ -643,22 +658,25 @@ function get_second_tbl_data(operator_number) {
 
                         const tr =
                             `<tr id="second_table_tr_${data.operator_number}_${data.line_number}">
-                        <td>${data.line_number ? data.line_number : '1'}</td>
-                        <td><input id="parts_number_${data.operator_number}_${data.line_number}"  type="text" class="form-control bg-light" value="${data.parts_number ? data.parts_number : localStorage.getItem('item_parts_number')}" style="width:${data.parts_number.length + 4}ch" readonly></td>
-                        <td><input id="revision_number_${data.operator_number}_${data.line_number}" type="number" class="form-control bg-light" value="${data.revision_number ? data.revision_number : localStorage.getItem('revision_number')}"  readonly></td>
-                        <td><input id="lot_number_${data.operator_number}_${data.line_number}" type="text" class="form-control bg-light" value="${data.lot_number ? data.lot_number : localStorage.getItem('lot_number')}" style="width:${data.lot_number.length + 4}ch" readonly></td>
-                        <td><input id="wafer_no_from_${data.operator_number}_${data.line_number}" type="number" class="form-control bg-light" value="${data.wafer_number_from ? data.wafer_number_from : data.waferFrom ? data.waferFrom : ''}"></td>
-                        <td><input id="wafer_no_to_${data.operator_number}_${data.line_number}" type="number" onkeydown="onkeydown_wafer_to(${data.operator_number},${data.line_number})" class="form-control bg-light" style="width:${data.wafer_number_to.length + 5}ch" value="${data.wafer_number_to ? data.wafer_number_to : data.waferTo ? data.waferTo : ''}"></td>
-                        <td><input id="qty_in_${data.operator_number}_${data.line_number}" type="number" class="form-control " value="${data.quantity_in ? data.quantity_in : ''}" onkeydown="oninput_qty_in(${data.operator_number}, ${data.line_number})"></td>
-                        <td id="ng_count_${data.operator_number}_${data.line_number}">${data.quantity_ng ? data.quantity_ng : '0'}</td>
-                        <td><input id="qty_out_${data.operator_number}_${data.line_number}" type="number" oninput="oninput_qty_out(${data.operator_number},${data.line_number})" class="form-control qtyOut_${data.line_number}" value="${data.quantity_out ? data.quantity_out : ''}"></td>
-                        <td><input id="sampling_in_${data.operator_number}_${data.line_number}" type="number" class="form-control" value="${data.sampling_in ? data.sampling_in : '0'}"  oninput="oninput_sampling_in(${data.operator_number}, ${data.line_number})"></td>
-                        <td><input id="sampling_out_${data.operator_number}_${data.line_number}" type="number" class="form-control" value="${data.sampling_out ? data.sampling_out : '0'}" oninput="oninput_sampling_out(${data.operator_number}, ${data.line_number})"></td>
-                        <td class="text-center" id="unfinished_qty_${data.operator_number}_${data.line_number}">${data.quantity_unfinished ? data.quantity_unfinished : ''}</td>
-                        <td><button type="button" id="remove_btn_${data.operator_number}_${data.line_number}" class="btn btn-sm btn-outline-danger" onclick="remove_data(${data.batch_operator_id})">Remove</button></td>
-                    </tr>`;
+                                <td>${data.line_number ? data.line_number : '1'}</td>
+                                <td><input id="parts_number_${data.operator_number}_${data.line_number}"  type="text" class="form-control bg-light" value="${data.parts_number ? data.parts_number : localStorage.getItem('item_parts_number')}" style="width:${data.parts_number.length + 4}ch" readonly></td>
+                                <td><input id="revision_number_${data.operator_number}_${data.line_number}" type="number" class="form-control bg-light" value="${data.revision_number ? data.revision_number : localStorage.getItem('revision_number')}"  readonly></td>
+                                <td><input id="lot_number_${data.operator_number}_${data.line_number}" type="text" class="form-control bg-light" value="${data.lot_number ? data.lot_number : localStorage.getItem('lot_number')}" style="width:${data.lot_number.length + 4}ch" readonly></td>
+                                <td><input id="wafer_no_from_${data.operator_number}_${data.line_number}" type="number" class="form-control bg-light" value="${data.wafer_number_from ? data.wafer_number_from : data.waferFrom ? data.waferFrom : ''}"></td>
+                                <td><input id="wafer_no_to_${data.operator_number}_${data.line_number}" type="number" onkeydown="onkeydown_wafer_to(${data.operator_number},${data.line_number})" class="form-control bg-light" style="width:${data.wafer_number_to.length + 5}ch" value="${data.wafer_number_to ? data.wafer_number_to : data.waferTo ? data.waferTo : ''}"></td>
+                                <td><input id="qty_in_${data.operator_number}_${data.line_number}" type="number" class="form-control " value="${data.quantity_in ? data.quantity_in : ''}" onkeydown="oninput_qty_in(${data.operator_number}, ${data.line_number})"></td>
+                                <td id="ng_count_${data.operator_number}_${data.line_number}">${data.quantity_ng ? data.quantity_ng : '0'}</td>
+                                <td><input id="qty_out_${data.operator_number}_${data.line_number}" type="number" oninput="oninput_qty_out(${data.operator_number},${data.line_number})" class="form-control qtyOut_${data.line_number}" value="${data.quantity_out ? data.quantity_out : ''}"></td>
+                                <td><input id="sampling_in_${data.operator_number}_${data.line_number}" type="number" class="form-control" value="${data.sampling_in ? data.sampling_in : '0'}"  oninput="oninput_sampling_in(${data.operator_number}, ${data.line_number})"></td>
+                                <td><input id="sampling_out_${data.operator_number}_${data.line_number}" type="number" class="form-control" value="${data.sampling_out ? data.sampling_out : '0'}" oninput="oninput_sampling_out(${data.operator_number}, ${data.line_number})"></td>
+                                <td class="text-center" id="unfinished_qty_${data.operator_number}_${data.line_number}">${data.quantity_unfinished ? data.quantity_unfinished : ''}</td>
+                                <td><button type="button" id="remove_btn_${data.operator_number}_${data.line_number}" class="btn btn-sm btn-outline-danger" onclick="remove_data(${data.batch_operator_id})">Remove</button></td>
+                                <td class="d-none">${data.assignment_id}</td>
+                            </tr>`;
                         second_table.innerHTML += tr;
-
+                        let wafer_from = document.getElementById(`wafer_no_from_${data.operator_number}_${data.line_number}`).value;
+                        let wafer_to = document.getElementById(`wafer_no_to_${data.operator_number}_${data.line_number}`).value;
+                        let limit = parseInt(wafer_to) - parseInt(wafer_from) + 1;
                         if (data.operator_status == "Started") {
                             disableStartBtn(data.operator_number);
                             enableEndBtn(data.operator_number);
@@ -667,11 +685,11 @@ function get_second_tbl_data(operator_number) {
                             disableSecondTable(data.operator_number, "Started");
                             // disableThirdTable(data.operator_number, "Started");
                             // disableThirdTable(data.operator_number, "Finished");
-                            if (localStorage.getItem(`tpc_sub_result_type`) == 'Wafer') {
-                                getNGWafer(data.operator_number);
+                            if (localStorage.getItem(`tpc_sub_result_type`) == 'Wafer' && localStorage.getItem('sequence_number') > 1) {
+                                getNGWafer(data.operator_number, data.line_number, limit);
                             }
                             document.getElementById(`remove_btn_${data.operator_number}_${data.line_number}`).classList.add('d-none');
-                            
+
                         }
                         else if (data.operator_status == "Finished") {
                             disableStartBtn(data.operator_number);
@@ -699,15 +717,14 @@ function get_second_tbl_data(operator_number) {
 
                             // document.getElementById(`remove_btn_${data.operator_number}_${data.line_number}`).classList.remove('d-none');
                         }
-                        localStorage.setItem('line_number', data.line_number);
-                        localStorage.setItem('parts_number', data.parts_number);
-                        localStorage.setItem('revision_number', data.revision_number);
-                        localStorage.setItem('lot_number', data.lot_number);
+                        // localStorage.setItem('line_number', data.line_number);
+                        // localStorage.setItem('parts_number', data.parts_number);
+                        // localStorage.setItem('revision_number', data.revision_number);
+                        // localStorage.setItem('lot_number', data.lot_number);
                         localStorage.setItem('operator_status', data.operator_status);
-                        console.log(localStorage.getItem('line_number'));
+                        // console.log(localStorage.getItem('line_number'));
                     }
                     let myPromise = new Promise(function (myResolve, myReject) {
-                        let x = 0;
                         if (second_tbl_data.success) {
                             myResolve(second_tbl_data.success);
                         } else {
@@ -735,37 +752,59 @@ function get_second_tbl_data(operator_number) {
 
 function get_third_tbl_data(data, operator_number) {
     const third_table_tbody = document.getElementById(`third_table_tbody_${operator_number}`);
-    // console.log(third_table_tbody);
-    // console.log(data, operator_number);
+    const second_table = document.getElementById(`second_table_tbody_${operator_number}`);
     if (data == true) {
-        const batch_number = localStorage.getItem(`batch_number`);
-        const fetch_third_tbl_data = new FormData;
-        fetch_third_tbl_data.append('SubPid', sub_pid);
-        fetch_third_tbl_data.append('batch_number', batch_number);
-        fetch_third_tbl_data.append('assignment_id', assign_id);
-        fetch_third_tbl_data.append('operator_number', operator_number);
-        fetch_third_tbl_data.append('fetch_data', 'true');
-        fetch(myFetchURL, {
-            method: 'POST',
-            body: fetch_third_tbl_data
-        })
-            .then(response => response.json())
-            .then(fetched_data => {
-                console.log(fetched_data);
-                third_table_tbody.innerHTML = '';
-                if (fetched_data.success) {
-                    let new_line_number = 1;
-                    var line_number = fetched_data.data[0].line_number;
-                    var h5 = `<h5>${fetched_data.data[0].lot_number}</h5>`;
-                    third_table_tbody.innerHTML += h5;
-                    for (let data of fetched_data.data) {
-                        if (line_number < data.line_number) {
-                            h5 = `<h5>${data.lot_number}</h5>`;
-                            third_table_tbody.innerHTML += h5;
-                            line_number = data.line_number;
-                        }
-                        const tr =
-                            `<tr id="third_table_tr_${data.line_number}_${data.wafer_number}_${operator_number}">
+        third_table_tbody.innerHTML = '';
+        const second_table_tr = second_table.querySelectorAll(`tr`);
+        for (let i = 0; i < second_table_tr.length; i++) {
+            let td = second_table_tr[i].querySelectorAll(`td`);
+            // console.log(third_table_tbody);
+            // console.log(data, operator_number);
+            // localStorage.getItem('line_number');
+            // localStorage.getItem('parts_number');
+            // localStorage.getItem('revision_number');
+            // localStorage.getItem('lot_number');
+            // localStorage.getItem('operator_status');
+
+
+            const batch_number = localStorage.getItem(`batch_number`);
+            let line_number = td[0].textContent;
+            let parts_number = td[1].querySelector(`input`).value;
+            let lot_number = td[3].querySelector(`input`).value;
+            let revision_number = td[2].querySelector(`input`).value;
+            console.log(`parts_number ${parts_number}, lot_number ${lot_number}, revision_number ${revision_number}`);
+            const fetch_third_tbl_data = new FormData;
+            fetch_third_tbl_data.append('SubPid', sub_pid);
+            fetch_third_tbl_data.append('batch_number', batch_number);
+            fetch_third_tbl_data.append('assignment_id', td[13].textContent);
+            fetch_third_tbl_data.append('operator_number', operator_number);
+            fetch_third_tbl_data.append('parts_number', parts_number);
+            fetch_third_tbl_data.append('lot_number', lot_number);
+            fetch_third_tbl_data.append('line_number', line_number);
+            fetch_third_tbl_data.append('revision_number', revision_number);
+            fetch_third_tbl_data.append('fetch_data', 'true');
+            fetch(myFetchURL, {
+                method: 'POST',
+                body: fetch_third_tbl_data
+            })
+                .then(response => response.json())
+                .then(fetched_data => {
+                    console.log(fetched_data);
+
+                    if (fetched_data.success) {
+                        // third_table_tbody.innerHTML = '';
+                        let new_line_number = 1;
+                        var line_number = fetched_data.data[0].line_number;
+                        var h5 = `<h5>${fetched_data.data[0].lot_number}</h5>`;
+                        third_table_tbody.innerHTML += h5;
+                        for (let data of fetched_data.data) {
+                            if (line_number < data.line_number) {
+                                h5 = `<h5>${data.lot_number}</h5>`;
+                                third_table_tbody.innerHTML += h5;
+                                line_number = data.line_number;
+                            }
+                            const tr =
+                                `<tr id="third_table_tr_${data.line_number}_${data.wafer_number}_${operator_number}">
                             <td>${new_line_number}</td>
                             <td style="width:${data.parts_number.length + 5}ch">${data.parts_number}</td>
                             <td style="width:${data.revision_number.length + 2}ch">${data.revision_number}</td>
@@ -782,31 +821,33 @@ function get_third_tbl_data(data, operator_number) {
                             <td><input type="text" class="form-control" value="${data.batch_item_remarks ? data.batch_item_remarks : ''}" id="remarks_${data.line_number}_${data.wafer_number}_${operator_number}"></td>
                             <td id="operator_id_no_${data.line_number}_${data.wafer_number}_${operator_number}">${data.id_number ? data.id_number : document.getElementById(`operator_id_${operator_number}`).value ? document.getElementById(`operator_id_${operator_number}`).value : ''} </td>
                         </tr>`;
-                        new_line_number++;
-                        third_table_tbody.innerHTML += tr;
-                        if (localStorage.getItem(`operator_status`) == 'Started') {
-                            if (localStorage.getItem(`tpc_sub_result_type`) == 'Chips') {
-                                document.getElementById(`qty_in_${data.line_number}_${data.wafer_number}_${operator_number}`).textContent = document.getElementById(`qty_in_${data.operator_number}_${data.line_number}`).value;
-                                document.getElementById(`good_count_${data.line_number}_${data.wafer_number}_${operator_number}`).textContent = document.getElementById(`qty_in_${data.operator_number}_${data.line_number}`).value;
-                                document.getElementById(`qty_out_${data.operator_number}_${data.line_number}`).value = document.getElementById(`qty_in_${data.operator_number}_${data.line_number}`).value;
+                            new_line_number++;
+                            third_table_tbody.innerHTML += tr;
+                            if (localStorage.getItem(`operator_status`) == 'Started') {
+                                if (localStorage.getItem(`tpc_sub_result_type`) == 'Chips') {
+                                    document.getElementById(`qty_in_${data.line_number}_${data.wafer_number}_${operator_number}`).textContent = document.getElementById(`qty_in_${data.operator_number}_${data.line_number}`).value;
+                                    document.getElementById(`good_count_${data.line_number}_${data.wafer_number}_${operator_number}`).textContent = document.getElementById(`qty_in_${data.operator_number}_${data.line_number}`).value;
+                                    document.getElementById(`qty_out_${data.operator_number}_${data.line_number}`).value = document.getElementById(`qty_in_${data.operator_number}_${data.line_number}`).value;
+                                }
+                            }
+                            if (localStorage.getItem('operator_status') == "Finished") {
+                                document.getElementById(`third_table_tr_${data.line_number}_${data.wafer_number}_${operator_number}`).classList.add('table-secondary');
+                                document.getElementById(`qtyng_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
+                                document.getElementById(`select_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
+                                document.getElementById(`remarks_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
+                                document.getElementById(`qty_in_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
+                                document.getElementById(`good_count_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
+                                // document.getElementById(`remove_btn_${data.operator_number}_${data.line_number}`).classList.add('d-none');
                             }
                         }
-                        if (localStorage.getItem('operator_status') == "Finished") {
-                            document.getElementById(`third_table_tr_${data.line_number}_${data.wafer_number}_${operator_number}`).classList.add('table-secondary');
-                            document.getElementById(`qtyng_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
-                            document.getElementById(`select_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
-                            document.getElementById(`remarks_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
-                            document.getElementById(`qty_in_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
-                            document.getElementById(`good_count_${data.line_number}_${data.wafer_number}_${operator_number}`).setAttribute('disabled', true);
-                            // document.getElementById(`remove_btn_${data.operator_number}_${data.line_number}`).classList.add('d-none');
-                        }
                     }
-                }
-            })
-            .catch(error => {
-                console.error(error);
-            })
-        console.log(batch_number);
+                })
+                .catch(error => {
+                    console.error(error);
+                })
+            console.log(batch_number);
+        }
+
     }
 }
 
@@ -858,6 +899,7 @@ function save_operator_data(operator_number) {
         const sampling_in = td_element[9].querySelector('input').value;
         const sampling_out = td_element[10].querySelector('input').value;
         const unfinished_qty = td_element[11].textContent ? td_element[11].textContent : '';
+        const assign_id = td_element[13].textContent;
         const time_start = time_start_input.value
 
         const tr_length = (parseInt(wafer_no_to) - parseInt(wafer_no_from)) + 1;
@@ -1114,9 +1156,10 @@ function save_process_data(operator_number) {
         const second_tbl_sampling_in = second_tbl_td_element[9].querySelector('input').value;
         const second_tbl_sampling_out = second_tbl_td_element[10].querySelector('input').value;
         const second_tbl_unfinished_qty = second_tbl_td_element[11].textContent;
+        const second_tbl_assignment_id = second_tbl_td_element[13].textContent;
         const batch_number = localStorage.getItem('batch_number');
         const save_second_tbl_data = new FormData();
-
+        console.log(second_tbl_assignment_id);
         save_second_tbl_data.append(`line_number_${i}`, second_tbl_line_number);
         save_second_tbl_data.append(`parts_number_${i}`, second_tbl_parts_number);
         save_second_tbl_data.append(`revision_number_${i}`, second_tbl_revision_number);
@@ -1133,7 +1176,7 @@ function save_process_data(operator_number) {
         save_second_tbl_data.append(`operator_number`, operator_number);
         save_second_tbl_data.append(`batch_number`, batch_number);
         save_second_tbl_data.append(`time_end`, formattedDateTime);
-        save_second_tbl_data.append(`assignment_id`, assign_id);
+        save_second_tbl_data.append(`assignment_id`, second_tbl_assignment_id);
         save_second_tbl_data.append(`total_time`, diffInMinutes);
         save_second_tbl_data.append(`operator_status`, status);
         save_second_tbl_data.append('save_second_table_data', 'true');
@@ -1177,7 +1220,7 @@ function save_third_tbl_data(operator_number) {
         const third_tbl_qty_in = third_tbl_td_element[5].textContent;
         const third_tbl_qty_ng = third_tbl_td_element[6].querySelector('input').value;
         const third_tbl_good_qty = third_tbl_td_element[7].textContent;
-        const third_tbl_ng_reason = third_tbl_td_element[8].querySelector('select').value;
+        const third_tbl_ng_reason = third_tbl_td_element[8].querySelector('select').value = 'Open this select menu' ? '' : third_tbl_td_element[8].querySelector('select').value;
         const third_tbl_remarks = third_tbl_td_element[9].querySelector('input').value;
         const third_tbl_operator_id_no = third_tbl_td_element[10].textContent;
         const batch_number = localStorage.getItem('batch_number');
@@ -1286,6 +1329,7 @@ function getQtyIn(line_number) {
     })
         .then(response => response.json())
         .then(qty_data => {
+            console.log('QUANTITY IN');
             console.log(qty_data);
             if (qty_data) {
                 if (qty_data.success) {
@@ -1570,6 +1614,7 @@ function getNgReason(line_number, wafer_number, operator_number) {
 }
 
 function oninput_addBatch(line_number) {
+    const assignment_id_input = document.getElementById(`assignment_id_${line_number}`);
     const parts_number_input = document.getElementById(`parts_number_${line_number}`);
     const revision_number_input = document.getElementById(`revision_number_${line_number}`);
     const lot_number_input = document.getElementById(`lot_number_${line_number}`);
@@ -1605,11 +1650,12 @@ function oninput_addBatch(line_number) {
                 })
                     .then(response => response.json())
                     .then(add_batch_data => {
-                        // console.log(add_batch_data);
+                        console.log(add_batch_data);
                         if (add_batch_data.success) {
                             // console.log(add_batch_data.data);
                             for (let data of add_batch_data.data) {
                                 if (data.tpc_sub_status == 'Open') {
+                                    assignment_id_input.textContent = data.assignment_id
                                     parts_number_input.value = data.item_parts_number;
                                     revision_number_input.value = data.revision_number;
                                     lot_number_input.value = data.lot_number;
@@ -1707,7 +1753,7 @@ function enableMainDoneProcessBtn() {
     document.getElementById(`done_process`).disabled = false;
 }
 
-function getNGWafer(operator_number) {
+function getNGWafer(operator_number, line_number, limit) {
     const batch_number = localStorage.getItem('batch_number');
     const parts_number = localStorage.getItem('item_parts_number');
     const revision_number = localStorage.getItem('revision_number');
@@ -1722,6 +1768,7 @@ function getNGWafer(operator_number) {
     getNGData.append(`revision_number`, revision_number);
     getNGData.append(`lot_number`, lot_number);
     getNGData.append(`SubPid`, sub_pid);
+    getNGData.append(`limit`, limit);
     getNGData.append(`getWaferNG`, 'true');
     fetch(myFetchURL, {
         method: 'POST',
@@ -1729,11 +1776,12 @@ function getNGWafer(operator_number) {
     })
         .then(response => response.json())
         .then(NGWaferData => {
-            console.log(NGWaferData);
+            console.log(line_number);
             if (NGWaferData) {
                 if (NGWaferData.success) {
+                    console.log(NGWaferData);
                     for (let data of NGWaferData.data) {
-                        console.log(data);
+                        // console.log(data);
                         const tr = document.getElementById(`third_table_tr_${data.line_number}_${data.wafer_number}_${operator_number}`);
                         localStorage.setItem('line_number', data.line_number);
                         localStorage.setItem('wafer_number', data.wafer_number);
@@ -1779,14 +1827,16 @@ function getNGWafer(operator_number) {
                         // const qtyNg = tr2.querySelector(`#qtyng_${data.line_number}_${data.wafer_number}_${operator_number}`);
                         // console.log(qtyNg.value);
                     }
-                    const qty_in2 = document.getElementById(`qty_in_${operator_number}_${NGWaferData.data[0].line_number}`);
-                    const qty_out2 = document.getElementById(`qty_out_${operator_number}_${NGWaferData.data[0].line_number}`);
-                    const ng2 = document.getElementById(`ng_count_${operator_number}_${NGWaferData.data[0].line_number}`);
-                    const wafer_to2 = document.getElementById(`wafer_no_to_${operator_number}_${NGWaferData.data[0].line_number}`);
-                    console.log(`ng_count_${operator_number}_${NGWaferData.data[0].line_number}`);
+                    const qty_in2 = document.getElementById(`qty_in_${operator_number}_${line_number}`);
+                    const qty_out2 = document.getElementById(`qty_out_${operator_number}_${line_number}`);
+                    const ng2 = document.getElementById(`ng_count_${operator_number}_${line_number}`);
+                    // const wafer_number_from = document.getElementById(`wafer_no_from_${operator_number}_${line_number}}`);
+                    // const wafer_to2 = document.getElementById(`wafer_no_to_${operator_number}_${line_number}`);
+                    console.log(`wafer_no_from_${operator_number}_${line_number}`);
                     const tbody = document.getElementById(`third_table_tbody_${operator_number}`);
-                    // console.log(tbody);
+                    // console.log(wafer_from2);
                     const tr = tbody.querySelectorAll(`tr`);
+                    console.log(tr.length);
                     for (let i = 0; i < tr.length; i++) {
                         const td_element = tr[i].querySelectorAll('td');
                         const qtyNG = td_element[6].querySelector(`input`).value;
@@ -1796,8 +1846,9 @@ function getNGWafer(operator_number) {
                         }
                         console.log(ng_count);
                     }
-                    qty_in2.value = parseInt(wafer_to2.value) - ng_count;
-                    qty_out2.value = parseInt(wafer_to2.value) - ng_count;
+                    const total = tr.length;
+                    qty_in2.value = parseInt(total) - ng_count;
+                    qty_out2.value = parseInt(total) - ng_count;
                     ng2.textContent = ng_count;
                     // console.log(tr);
                     // const td = tr.querySelectorAll(`td`);
@@ -1843,15 +1894,13 @@ function disableSecondTable(operator_number, status) {
                 td_element[6].querySelector('input').classList.remove('bg-light');
             }
             console.log(localStorage.getItem(`tpc_sub_sampling`));
-            if(localStorage.getItem(`tpc_sub_sampling`) == 'True')
-            {
+            if (localStorage.getItem(`tpc_sub_sampling`) == 'True') {
                 td_element[9].querySelector('input').readOnly = false;
                 td_element[9].querySelector('input').classList.remove('bg-light');
                 td_element[10].querySelector('input').readOnly = false;
                 td_element[10].querySelector('input').classList.remove('bg-light');
             }
-            else
-            {
+            else {
                 td_element[9].querySelector('input').readOnly = true;
                 td_element[9].querySelector('input').classList.add('bg-light');
                 td_element[10].querySelector('input').readOnly = true;
@@ -1929,4 +1978,54 @@ function disableThirdTable(operator_number, status) {
             td_element[10].querySelector('input').readOnly = true;
         }
     }
+}
+
+function end_process() {
+    const end_data = new FormData();
+    end_data.append('SubPid', sub_pid);
+    end_data.append('assignment_id', assign_id);
+    end_data.append('end_process', 'true');
+    fetch(myFetchURL, {
+        method: 'POST',
+        body: end_data
+    })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.success);
+            if (data.success) {
+                let item_code = localStorage.getItem('itemCode');
+                let parts_number = localStorage.getItem('partsNumber');
+                let lot_number = localStorage.getItem('lotNo');
+                let date_issued = localStorage.getItem('dateIssued');
+                let revision_number = localStorage.getItem('revisionNumber');
+                let sectionId = localStorage.getItem('sectionId');
+                let assign_id = localStorage.getItem('assign_id');
+                // console.log(`item_code${item_code},parts_number ${parts_number}, lot_number${lot_number}, date_issued${date_issued},revision_number ${revision_number}, assignment_id ${assign_id}`);
+                const refreshData = new FormData();
+                refreshData.append('item_code', item_code);
+                refreshData.append('parts_number', parts_number);
+                refreshData.append('lot_number', lot_number);
+                refreshData.append('date_issued', date_issued);
+                refreshData.append('revision_number', revision_number);
+                refreshData.append('assignment_id', assign_id);
+                refreshData.append('QrSubmitBtn', 'true');
+                fetch(myFetchURL, {
+                    method: 'POST',
+                    body: refreshData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data);
+                        localStorage.setItem('myData', JSON.stringify(data));
+                        localStorage.setItem('sectionId', JSON.stringify(sectionId));
+                        // const thisData2 = JSON.parse(localStorage.getItem('myData'));
+                        // console.log(thisData2);
+                        if (localStorage.getItem('myData') != null || localStorage.getItem('myData') != 0) {
+                            // saveBtn.click();
+                            window.opener.location.reload(true);
+                            window.close();
+                        }
+                    })
+            }
+        })
 }
